@@ -55,7 +55,7 @@ def handle_missing_token(request):
 
     # The request state is a recommended security check on the callback, so
     # store in session for later
-    oauth_request_state = get_random_string()
+    oauth_request_state = get_random_string(12)
     request.session["canvas_oauth_request_state"] = oauth_request_state
 
     # The return URI is required to be the same when POSTing to generate
