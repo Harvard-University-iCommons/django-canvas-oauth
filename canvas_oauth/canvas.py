@@ -5,7 +5,7 @@ import requests
 from django.utils import timezone
 
 from canvas_oauth.exceptions import InvalidOAuthReturnError
-from canvas_oauth import settings
+from canvas_oauth.settings import get_canvas_credentials
 
 logger = logging.getLogger(__name__)
 
@@ -13,13 +13,14 @@ AUTHORIZE_URL_PATTERN = "https://%s/login/oauth2/auth"
 ACCESS_TOKEN_URL_PATTERN = "https://%s/login/oauth2/token"
 
 
-def get_oauth_login_url(client_id, redirect_uri, response_type='code',
+def get_oauth_login_url(domain, redirect_uri, response_type='code',
                         state=None, scopes=None, purpose=None,
                         force_login=None):
     """Builds an OAuth request url for Canvas.
     """
-    authorize_url = AUTHORIZE_URL_PATTERN % settings.CANVAS_OAUTH_CANVAS_DOMAIN
-    scopes = " ".join(scopes) if scopes else None  
+    client_id, _, _ = get_canvas_credentials(domain)
+    authorize_url = AUTHORIZE_URL_PATTERN % domain
+    scopes = " ".join(scopes) if scopes else None
 
     auth_request_params = {
         'client_id': client_id,
@@ -40,18 +41,30 @@ def get_oauth_login_url(client_id, redirect_uri, response_type='code',
     return auth_request.prepare().url
 
 
-def get_access_token(grant_type, client_id, client_secret, redirect_uri,
+def get_access_token(domain, grant_type, redirect_uri,
                      code=None, refresh_token=None):
     """Performs one of the two grant types supported by Canvas' OAuth endpoint to
     to retrieve an access token.  Expect a `code` kwarg when performing an
     `authorization_code` grant; otherwise, assume we're doing a `refresh_token`
     grant.
 
-    Return a tuple of the access token, expiration date as a timezone aware DateTime,
-    and refresh token (returned by `authorization_code` requests only).
+    Args:
+        domain: Canvas domain (e.g., 'canvas.school.edu')
+        grant_type: OAuth grant type ('authorization_code' or 'refresh_token')
+        redirect_uri: OAuth redirect URI
+        code: Authorization code (required for 'authorization_code' grant)
+        refresh_token: Refresh token (required for 'refresh_token' grant)
+
+    Returns:
+        tuple: (access_token, expiration_datetime, refresh_token)
+
+    Raises:
+        InvalidOAuthReturnError: If the OAuth request fails
     """
-    # Call Canvas endpoint to
-    oauth_token_url = ACCESS_TOKEN_URL_PATTERN % settings.CANVAS_OAUTH_CANVAS_DOMAIN
+    client_id, client_secret, _ = get_canvas_credentials(domain)
+
+    # Call Canvas endpoint
+    oauth_token_url = ACCESS_TOKEN_URL_PATTERN % domain
     post_params = {
         'grant_type': grant_type,  # Use 'authorization_code' for new tokens
         'client_id': client_id,
